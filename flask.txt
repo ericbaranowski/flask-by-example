@@ -1,0 +1,409 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_[_R_e_a_l_ _P_y_t_h_o_n_]
+    * _S_t_a_r_t_ _H_e_r_e
+    * _T_u_t_o_r_i_a_l_s
+    * _ _P_r_o_d_u_c_t_s
+      _T_h_e_ _R_e_a_l_ _P_y_t_h_o_n_ _C_o_u_r_s_e _P_y_t_h_o_n_ _T_r_i_c_k_s_:_ _T_h_e_ _B_o_o_k _M_a_n_a_g_i_n_g_ _P_y_t_h_o_n
+      _D_e_p_e_n_d_e_n_c_i_e_s _S_u_b_l_i_m_e_ _T_e_x_t_ _+_ _P_y_t_h_o_n_ _S_e_t_u_p _P_y_t_h_o_n_i_c_ _M_u_g_s_,_ _S_h_i_r_t_s_,_ _a_n_d_ _M_o_r_e
+      _P_y_t_h_o_n_i_s_t_a_ _C_a_f_e_ _C_o_m_m_u_n_i_t_y
+    * _M_o_r_e
+      _R_e_s_o_u_r_c_e_s _M_e_n_t_o_r_i_n_g _F_A_Q _S_u_p_p_o_r_t
+[Unknown INPUT type]
+
+************ FFllaasskk bbyy EExxaammppllee ����� SSeettttiinngg uupp PPoossttggrreess,, SSQQLLAAllcchheemmyy,, aanndd AAlleemmbbiicc ************
+by _R_e_a_l_ _P_y_t_h_o_n  Apr 29, 2014 _f_l_a_s_k _p_y_t_h_o_n
+Table of Contents
+    * _I_n_s_t_a_l_l_ _R_e_q_u_i_r_e_m_e_n_t_s
+    * _U_p_d_a_t_e_ _C_o_n_f_i_g_u_r_a_t_i_o_n
+    * _D_a_t_a_ _M_o_d_e_l
+    * _L_o_c_a_l_ _M_i_g_r_a_t_i_o_n
+    * _R_e_m_o_t_e_ _M_i_g_r_a_t_i_o_n
+    * _C_o_n_c_l_u_s_i_o_n
+In this part we&rsquo;re going to set up a Postgres database to store the
+results of our word counts as well as SQLAlchemy, an Object Relational Mapper,
+and Alembic to handle database migrations.
+FFrreeee BBoonnuuss:: Get our Flask + Python video tutorial series that shows you how to
+build a fully working Flask web app, step-by-step.
+UUppddaatteess::
+    * 03/22/2016: Upgraded to Python version _3_._5_._1 as well as the latest
+      versions of Psycopg2, Flask-SQLAlchemy, and Flask-Migrate. See _b_e_l_o_w for
+      details.
+    * 02/22/2015: Added Python 3 support.
+===============================================================================
+Remember: Here&rsquo;s what we&rsquo;re building - A Flask app that calculates
+word-frequency pairs based on the text from a given URL.
+   1. _P_a_r_t_ _O_n_e: Set up a local development environment and then deploy both a
+      staging and a production environment on Heroku.
+   2. PPaarrtt TTwwoo:: SSeett uupp aa PPoossttggrreeSSQQLL ddaattaabbaassee aalloonngg wwiitthh SSQQLLAAllcchheemmyy aanndd AAlleemmbbiicc
+      ttoo hhaannddllee mmiiggrraattiioonnss.. ((ccuurrrreenntt))
+   3. _P_a_r_t_ _T_h_r_e_e: Add in the back-end logic to scrape and then process the word
+      counts from a webpage using the requests, BeautifulSoup, and Natural
+      Language Toolkit (NLTK) libraries.
+   4. _P_a_r_t_ _F_o_u_r: Implement a Redis task queue to handle the text processing.
+   5. _P_a_r_t_ _F_i_v_e: Set up Angular on the front-end to continuously poll the back-
+      end to see if the request is done processing.
+   6. _P_a_r_t_ _S_i_x: Push to the staging server on Heroku - setting up Redis and
+      detailing how to run two processes (web and worker) on a single Dyno.
+   7. _P_a_r_t_ _S_e_v_e_n: Update the front-end to make it more user-friendly.
+   8. _P_a_r_t_ _E_i_g_h_t: Create a custom Angular Directive to display a frequency
+      distribution chart using JavaScript and D3.
+Need the code? Grab it from the _r_e_p_o.
+********** IInnssttaallll RReeqquuiirreemmeennttss **********
+Tools used in this part:
+    * PostgreSQL (_9_._4)
+    * Psycopg2 (_2_._6_._1) - a Python adapter for Postgres
+    * Flask-SQLAlchemy (_2_._1) - Flask extension that provides _S_Q_L_A_l_c_h_e_m_y support
+    * Flask-Migrate (_1_._8_._0) - extension that supports SQLAlchemy database
+      migrations via _A_l_e_m_b_i_c
+To get started, install Postgres on your local computer, if you don&rsquo;t
+have it already. Since Heroku uses Postgres, it will be good for us to develop
+locally on the same database. If you don&rsquo;t have Postgres installed,
+_P_o_s_t_g_r_e_s_._a_p_p is an easy way to get up and running for Mac OS X users. Consult
+the _d_o_w_n_l_o_a_d_ _p_a_g_e for more info.
+Once you have Postgres installed and running, create a database called
+wordcount_dev to use as our local development database:
+$ psql
+# create database wordcount_dev;
+CREATE DATABASE
+# \q
+In order to use our newly created database within the Flask app we to need to
+install a few things:
+$ cd flask-by-example
+     cding into the directory should activate the virtual environment and
+     set the environment variables found in the .env file via _a_u_t_o_e_n_v,
+     which we set up in _p_a_r_t_ _1.
+$ pip install psycopg2==2.6.1 Flask-SQLAlchemy===2.1 Flask-Migrate==1.8.0
+$ pip freeze &gt; requirements.txt
+     If you&rsquo;re on OS X and having trouble installing psycopg2 check
+     out _t_h_i_s Stack Overflow article.
+********** UUppddaattee CCoonnffiigguurraattiioonn **********
+Add SQLALCHEMY_DATABASE_URI field to the Config() class in your ccoonnffiigg..ppyy file
+to set your app to use the newly created database in development (local),
+staging, and production:
+import os
+
+class Config(object):
+    ...
+    SQLALCHEMY_DATABASE_URI = os.environ['DATABASE_URL']
+Your ccoonnffiigg..ppyy file should now look like this:
+import os
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+
+class Config(object):
+    DEBUG = False
+    TESTING = False
+    CSRF_ENABLED = True
+    SECRET_KEY = 'this-really-needs-to-be-changed'
+    SQLALCHEMY_DATABASE_URI = os.environ['DATABASE_URL']
+
+
+class ProductionConfig(Config):
+    DEBUG = False
+
+
+class StagingConfig(Config):
+    DEVELOPMENT = True
+    DEBUG = True
+
+
+class DevelopmentConfig(Config):
+    DEVELOPMENT = True
+    DEBUG = True
+
+
+class TestingConfig(Config):
+    TESTING = True
+Now when our config is loaded into our app the appropriate database will be
+connected to it as well.
+Similar to how we added an environment variable in the last post, we are going
+to add a DATABASE_URL variable. Run this in the terminal:
+$ export DATABASE_URL=&quot;postgresql://localhost/wordcount_dev&quot;
+And then add that line into your ..eennvv file.
+In your aapppp..ppyy file import SQLAlchemy and connect to the database:
+from flask import Flask
+from flask.ext.sqlalchemy import SQLAlchemy
+import os
+
+
+app = Flask(__name__)
+app.config.from_object(os.environ['APP_SETTINGS'])
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+from models import Result
+
+
+@app.route('/')
+def hello():
+    return &quot;Hello World!&quot;
+
+
+@app.route('/&lt;name&gt;')
+def hello_name(name):
+    return &quot;Hello {}!&quot;.format(name)
+
+
+if __name__ == '__main__':
+    app.run()
+********** DDaattaa MMooddeell **********
+Set up a basic model by adding a mmooddeellss..ppyy file:
+from app import db
+from sqlalchemy.dialects.postgresql import JSON
+
+
+class Result(db.Model):
+    __tablename__ = 'results'
+
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String())
+    result_all = db.Column(JSON)
+    result_no_stop_words = db.Column(JSON)
+
+    def __init__(self, url, result_all, result_no_stop_words):
+        self.url = url
+        self.result_all = result_all
+        self.result_no_stop_words = result_no_stop_words
+
+    def __repr__(self):
+        return '&lt;id {}&gt;'.format(self.id)
+Here we created a table to store the results of the word counts.
+We first import the database connection that we created in our aapppp..ppyy file as
+well as JSON from SQLAlchemy&rsquo;s _P_o_s_t_g_r_e_S_Q_L_ _d_i_a_l_e_c_t_s. JSON columns are
+fairly new to Postgres and are not available in every database supported by
+SQLAlchemy so we need to import it specifically.
+Next we created a Result() class and assigned it a table name of results. We
+then set the attributes that we want to store for a result-
+    * the id of the result we stored
+    * the url that we counted the words from
+    * a full list of words that we counted
+    * a list of words that we counted minus stop words (more on this later)
+We then created an __init__() method that will run the first time we create a
+new result and, finally, a __repr__() method to represent the object when we
+query for it.
+********** LLooccaall MMiiggrraattiioonn **********
+We are going to use _A_l_e_m_b_i_c, which is part of _F_l_a_s_k_-_M_i_g_r_a_t_e, to manage database
+migrations to update a database&rsquo;s schema.
+Create a new file called mmaannaaggee..ppyy:
+import os
+from flask.ext.script import Manager
+from flask.ext.migrate import Migrate, MigrateCommand
+
+from app import app, db
+
+
+app.config.from_object(os.environ['APP_SETTINGS'])
+
+migrate = Migrate(app, db)
+manager = Manager(app)
+
+manager.add_command('db', MigrateCommand)
+
+
+if __name__ == '__main__':
+    manager.run()
+In order to use Flask-Migrate we imported Manager as well as Migrate and
+MigrateCommand to our mmaannaaggee..ppyy file. We also imported app and db so we have
+access to them from within the script.
+First, we set our config to get our environment - based on the environment
+variable - created a migrate instance, with app and db as the arguments, and
+set up a manager command to initialize a Manager instance for our app. Finally,
+we added the db command to the manager so that we can run the migrations from
+the command line.
+In order to run the migrations initialize Alembic:
+$ python manage.py db init
+  Creating directory /flask-by-example/migrations ... done
+  Creating directory /flask-by-example/migrations/versions ... done
+  Generating /flask-by-example/migrations/alembic.ini ... done
+  Generating /flask-by-example/migrations/env.py ... done
+  Generating /flask-by-example/migrations/README ... done
+  Generating /flask-by-example/migrations/script.py.mako ... done
+  Please edit configuration/connection/logging settings in
+  '/flask-by-example/migrations/alembic.ini' before proceeding.
+After you run the database initialization you will see a new folder called
+&ldquo;migrations&rdquo; in the project. This holds the setup necessary for
+Alembic to run migrations against the project. Inside of
+&ldquo;migrations&rdquo; you will see that it has a folder called
+&ldquo;versions&rdquo;, which will contain the migration scripts as they are
+created.
+Let&rsquo;s create our first migration by running the migrate command.
+$ python manage.py db migrate
+  INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+  INFO  [alembic.runtime.migration] Will assume transactional DDL.
+  INFO  [alembic.autogenerate.compare] Detected added table 'results'
+    Generating /flask-by-example/migrations/versions/63dba2060f71_.py
+    ... done
+Now you&rsquo;ll notice in your &ldquo;versions&rdquo; folder there is a
+migration file. This file is auto-generated by Alembic based on the model. You
+could generate (or edit) this file yourself; however, for most cases the auto-
+generated file will do.
+Now we&rsquo;ll apply the upgrades to the database using the db upgrade
+command:
+$ python manage.py db upgrade
+  INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+  INFO  [alembic.runtime.migration] Will assume transactional DDL.
+  INFO  [alembic.runtime.migration] Running upgrade  -&gt; 63dba2060f71, empty
+message
+The database is now ready for us to use in our app:
+$ psql
+# \c wordcount_dev
+You are now connected to database &quot;wordcount_dev&quot; as user
+&quot;michaelherman&quot;.
+# \dt
+
+                List of relations
+ Schema |      Name       | Type  |     Owner
+--------+-----------------+-------+---------------
+ public | alembic_version | table | michaelherman
+ public | results         | table | michaelherman
+(2 rows)
+
+# \d results
+                                     Table &quot;public.results&quot;
+        Column        |       Type        |                      Modifiers
+----------------------+-------------------+------------------------------------
+------------------
+ id                   | integer           | not null default nextval
+('results_id_seq'::regclass)
+ url                  | character varying |
+ result_all           | json              |
+ result_no_stop_words | json              |
+Indexes:
+    &quot;results_pkey&quot; PRIMARY KEY, btree (id)
+********** RReemmoottee MMiiggrraattiioonn **********
+Finally, let&rsquo;s apply the migrations to the databases on Heroku. First,
+though, we need to add the details of the staging and production databases to
+the ccoonnffiigg..ppyy file.
+To check if we have a database set up on the staging server run:
+$ heroku config --app wordcount-stage
+=== wordcount-stage Config Vars
+APP_SETTINGS: config.StagingConfig
+     Make sure to replace wordcount-stage with the name of your staging
+     app.
+Since we don&rsquo;t see a database environment variable, we need to add the
+Postgres addon to the staging server. To do so, run the following command:
+$ heroku addons:create heroku-postgresql:hobby-dev --app wordcount-stage
+  Creating postgresql-cubic-86416... done, (free)
+  Adding postgresql-cubic-86416 to wordcount-stage... done
+  Setting DATABASE_URL and restarting wordcount-stage... done, v8
+  Database has been created and is available
+   ! This database is empty. If upgrading, you can transfer
+   ! data from another database with pg:copy
+  Use `heroku addons:docs heroku-postgresql` to view documentation.
+     hobby-dev is the _f_r_e_e_ _t_i_e_r of the Heroku Postgres addon.
+Now when we run heroku config --app wordcount-stage again we should see the
+connection settings for the database:
+=== wordcount-stage Config Vars
+APP_SETTINGS: config.StagingConfig
+DATABASE_URL: postgres://azrqiefezenfrg:Zti5fjSyeyFgoc-U-yXnPrXHQv@ec2-54-225-
+151-64.compute-1.amazonaws.com:5432/d2kio2ubc804p7
+Next we need to commit the changes that you&rsquo;ve made to git and push to
+your staging server:
+$ git push stage master
+Run the migrations that we created to migrate our staging database by using the
+heroku run command:
+$ heroku run python manage.py db upgrade --app wordcount-stage
+  Running python manage.py db upgrade on wordcount-stage... up, run.5677
+  INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+  INFO  [alembic.runtime.migration] Will assume transactional DDL.
+  INFO  [alembic.runtime.migration] Running upgrade  -&gt; 63dba2060f71, empty
+message
+     Notice how we only ran the upgrade, not the init or migrate commands
+     like before. We already have our migration file set up and ready to
+     go; we just need to apply it against the Heroku database.
+Let&rsquo;s now do the same for production.
+   1. Set up a database for your production app on Heroku, just like you did
+      for staging: heroku addons:create heroku-postgresql:hobby-dev --app
+      wordcount-pro
+   2. Push your changes to your production site: git push pro master Notice how
+      you don&rsquo;t have to make any changes to the config file - it&rsquo;s
+      setting the database based on the newly created DATABASE_URL environment
+      variable.
+   3. Apply the migrations: heroku run python manage.py db upgrade --app
+      wordcount-pro
+Now both our staging and production sites have their databases set up and are
+migrated - and ready to go!
+     When you apply a new migration to the production database, there
+     could be down time. If this is an issue, you can set up database
+     replication by adding a &ldquo;follower&rdquo; (commonly known as a
+     slave) database. For more on this, check out the official Heroku
+     _d_o_c_u_m_e_n_t_a_t_i_o_n.
+********** CCoonncclluussiioonn **********
+That&rsquo;s it for part 2. If you&rsquo;d like to dig deeper into Flask, check
+out our accompanying video series:
+FFrreeee BBoonnuuss:: Click here to get access to a free Flask + Python video tutorial
+series that shows you how to build a fully working Flask web app, step-by-step.
+In _P_a_r_t_ _3 we&rsquo;re going to build the word counting functionality and have
+it sent to a task queue to deal with the longer running word count processing.
+See you next time. Cheers!
+===============================================================================
+TThhiiss iiss aa ccoollllaabboorraattiioonn ppiieeccee bbeettwweeeenn CCaamm LLiinnkkee,, ccoo--ffoouunnddeerr ooff _SS_tt_aa_rr_tt_uu_pp
+_EE_dd_mm_oo_nn_tt_oo_nn,, aanndd tthhee ffoollkkss aatt RReeaall PPyytthhoonn..
+🐍 Python Tricks 💌
+Get a short &amp; sweet PPyytthhoonn TTrriicckk delivered to your inbox every couple of
+days. No spam ever. Unsubscribe any time. Curated by the Real Python team.
+[Python Tricks Dictionary Merge]
+[Unknown INPUT type]
+Send Me Python Tricks »
+What do you think?
+Keep Reading
+_f_l_a_s_k _p_y_t_h_o_n
+— FREE Email Series —
+🐍 Python Tricks 💌
+[Python Tricks Dictionary Merge]
+[Unknown INPUT type]
+Get Python Tricks »
+🔒 No spam. Unsubscribe any time.
+Write Clean &amp; Pythonic Code
+_[_P_y_t_h_o_n_ _T_r_i_c_k_s_ _B_o_o_k_ _C_o_v_e_r_ _2_D_]
+Discover Python's best practices with simple examples and start writing
+beautiful + Pythonic code:
+_C_l_i_c_k_ _H_e_r_e_ _t_o_ _L_e_a_r_n_ _M_o_r_e_ _�_�
+All Tutorial Topics
+_a_n_a_l_y_t_i_c_s _a_p_i _a_w_s _b_o_t_t_l_e _d_a_t_a_-_s_c_i_e_n_c_e _d_e_v_o_p_s _d_j_a_n_g_o _d_o_c_k_e_r _e_d_i_t_o_r_s _f_l_a_s_k _f_r_o_n_t_-
+_e_n_d _f_u_n_d_a_m_e_n_t_a_l_s _m_i_g_r_a_t_i_o_n_s _n_o_s_q_l _o_p_e_n_c_v _p_y_r_a_m_i_d _p_y_t_h_o_n _r_e_d_i_s _s_c_r_a_p_i_n_g _s_q_l
+_t_e_s_t_i_n_g _w_e_b_2_p_y
+Table of Contents
+    * _I_n_s_t_a_l_l_ _R_e_q_u_i_r_e_m_e_n_t_s
+    * _U_p_d_a_t_e_ _C_o_n_f_i_g_u_r_a_t_i_o_n
+    * _D_a_t_a_ _M_o_d_e_l
+    * _L_o_c_a_l_ _M_i_g_r_a_t_i_o_n
+    * _R_e_m_o_t_e_ _M_i_g_r_a_t_i_o_n
+    * _C_o_n_c_l_u_s_i_o_n
+Almost there! Complete this form and click the button below to gain instant
+access:
+ �
+[https://files.realpython.com/media/flask.3aee85149243.png]
+Free Flask Video Tutorial Series: Build a Python Web App, From Scratch
+
+[Unknown INPUT type]
+Send Flask Tutorials »
+Almost there! Complete this form and click the button below to gain instant
+access:
+ �
+[https://files.realpython.com/media/flask.3aee85149243.png]
+Free Flask Video Tutorial Series: Build a Python Web App, From Scratch
+
+[Unknown INPUT type]
+Send Flask Tutorials »
+© 2012–2018 Real Python ⋅ _N_e_w_s_l_e_t_t_e_r ⋅ _T_w_i_t_t_e_r ⋅ _F_a_c_e_b_o_o_k ⋅ _P_y_t_h_o_n
+_T_u_t_o_r_i_a_l_s
+❤️ Happy Pythoning!
